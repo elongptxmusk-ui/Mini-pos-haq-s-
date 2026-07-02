@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>HAQ'S POS — Scan &amp; Bill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#20222b;
+    --ink-dim:#6b6f7d;
+    --ink-faint:#9a9eab;
+    --violet:#6a5fd3;
+    --violet-dim:#8f86e0;
+    --coral:#e0654a;
+    --green:#2fae7e;
+    --glass:rgba(255,255,255,0.62);
+    --glass-strong:rgba(255,255,255,0.82);
+    --glass-border:rgba(255,255,255,0.75);
+    --hair:rgba(32,34,43,0.09);
+    --hair-strong:rgba(32,34,43,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink);
+    background:#eef0f6;
+    position:relative;
+    overflow-x:hidden;
+    padding-bottom:36px;
+  }
+  .blob{
+    position:fixed; border-radius:50%; filter:blur(60px); z-index:0; pointer-events:none;
+  }
+  .b1{width:340px;height:340px; background:#c7c2f5; top:-120px; left:-90px; opacity:0.65;}
+  .b2{width:300px;height:300px; background:#ffd0b8; top:180px; right:-110px; opacity:0.55;}
+  .b3{width:280px;height:280px; background:#bfe6d6; bottom:60px; left:-100px; opacity:0.5;}
+  .b4{width:260px;height:260px; background:#c2ddf5; bottom:-100px; right:-70px; opacity:0.55;}
+
+  .wrap{max-width:520px;margin:0 auto;padding:0 14px; position:relative; z-index:1;}
+
+  header{
+    padding:20px 4px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{display:flex; align-items:center; gap:11px;}
+  .brand .mark{
+    width:42px;height:42px;border-radius:13px;
+    background:linear-gradient(155deg, var(--violet), #8f7ef0);
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Manrope',sans-serif; font-weight:800; font-size:15px; letter-spacing:0.2px;
+    flex-shrink:0;
+    box-shadow:0 8px 20px -8px rgba(106,95,211,0.55);
+  }
+  .brand h1{
+    font-family:'Manrope',sans-serif; font-weight:800;
+    font-size:19px; margin:0; line-height:1.1; color:var(--ink);
+  }
+  .brand .sub{font-size:11.5px; color:var(--ink-dim); margin-top:2px;}
+  .bill-tag{
+    text-align:right; font-size:10.5px; color:var(--ink-faint); font-weight:600; letter-spacing:0.4px;
+  }
+  .bill-tag b{color:var(--violet); font-size:13px; display:block; font-family:'Manrope',sans-serif; font-weight:700;}
+
+  .glass{
+    background:var(--glass);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid var(--glass-border);
+    border-radius:20px;
+    box-shadow:0 10px 30px -14px rgba(32,34,43,0.18);
+  }
+
+  .banner{
+    display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:16px;
+    margin:0 0 12px; font-size:12.5px; line-height:1.5;
+  }
+  .banner.warn{ background:rgba(224,101,74,0.14); border:1px solid rgba(224,101,74,0.3); color:#a4432c;}
+  .banner .bicon{font-size:15px; flex-shrink:0; margin-top:1px;}
+  .banner b{display:block; margin-bottom:2px; font-weight:700;}
+  .banner.hidden{display:none;}
+
+  .scan-zone{margin:0 0 14px; overflow:hidden; position:relative;}
+  .scan-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 16px; border-bottom:1px solid var(--hair);
+  }
+  .scan-head .label{font-size:12px; letter-spacing:0.3px; color:var(--ink-dim); font-weight:600;}
+  .status-dot{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-faint); font-weight:600;}
+  .status-dot .d{width:7px;height:7px;border-radius:50%; background:var(--ink-faint);}
+  .status-dot.live .d{background:var(--green); box-shadow:0 0 0 4px rgba(47,174,126,0.18);}
+  .status-dot.live{color:var(--green);}
+
+  #reader{width:100%; background:#111318; border-radius:0;}
+  #reader video{width:100% !important; display:block; object-fit:cover;}
+  #reader img{display:none;}
+
+  .viewfinder-off{padding:38px 22px; text-align:center;}
+  .viewfinder-off .vicon{
+    width:52px;height:52px;border-radius:16px; margin:0 auto 14px;
+    background:rgba(106,95,211,0.12); color:var(--violet);
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+  }
+  .viewfinder-off p{color:var(--ink-dim); font-size:13px; margin:0 0 16px; line-height:1.5;}
+
+  button{font-family:inherit;}
+  .btn{
+    flex:1; padding:12px 10px; border-radius:13px; border:1px solid var(--hair-strong);
+    background:rgba(255,255,255,0.5); color:var(--ink); font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn.primary{
+    background:linear-gradient(155deg, var(--violet), #8f7ef0); border-color:transparent; color:#fff;
+    box-shadow:0 10px 22px -10px rgba(106,95,211,0.6);
+  }
+  .btn.ghost{background:transparent; border-color:var(--hair-strong);}
+  .btn.danger{border-color:rgba(224,101,74,0.4); color:var(--coral); background:rgba(224,101,74,0.08);}
+
+  .scan-controls{display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--hair);}
+
+  .flash{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(17,19,24,0.88); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    opacity:0; pointer-events:none; transition:opacity 0.14s ease;
+    flex-direction:column; text-align:center; padding:20px; z-index:10;
+  }
+  .flash.show{opacity:1;}
+  .flash .fname{font-size:15px; font-weight:600; color:#fff; margin:10px 0 4px; line-height:1.35;}
+  .flash .fprice{font-family:'Manrope',sans-serif; font-weight:800; font-size:28px; color:#a3ffcf; letter-spacing:0.2px;}
+  .flash .ficon{
+    width:48px;height:48px;border-radius:50%; background:rgba(47,174,126,0.22); color:#a3ffcf;
+    display:flex; align-items:center; justify-content:center; font-size:22px;
+  }
+  .flash.miss .ficon{background:rgba(224,101,74,0.22); color:#ffb199;}
+  .flash.miss .fname{color:#ffb199; font-size:13.5px;}
+
+  .scan-frame{
+    position:absolute; left:8%; right:8%; top:24%; bottom:24%;
+    border:2px solid rgba(255,255,255,0.55); border-radius:16px; z-index:4; pointer-events:none;
+  }
+  .scan-frame::before, .scan-frame::after{content:''; position:absolute; width:22px; height:22px; border:3px solid #a3ffcf;}
+  .scan-frame::before{top:-3px; left:-3px; border-right:none; border-bottom:none; border-radius:10px 0 0 0;}
+  .scan-frame::after{bottom:-3px; right:-3px; border-left:none; border-top:none; border-radius:0 0 10px 0;}
+  .laser{
+    position:absolute; left:9%; right:9%; height:2px;
+    background:linear-gradient(90deg, transparent, #a3ffcf, transparent);
+    animation:sweep 1.7s ease-in-out infinite; z-index:5; pointer-events:none;
+  }
+  @keyframes sweep{ 0%{top:26%;} 50%{top:72%;} 100%{top:26%;} }
+
+  .search-wrap{position:relative; margin:0 0 12px; z-index:20;}
+  .search-bar{
+    display:flex; align-items:center; gap:9px; padding:4px 6px 4px 15px; border-radius:15px;
+  }
+  .search-bar .sicon{font-size:15px; color:var(--ink-faint); flex-shrink:0;}
+  .search-bar input{
+    flex:1; border:none; background:transparent; outline:none; padding:11px 2px;
+    font-size:14.5px; font-family:'Inter',sans-serif; color:var(--ink); min-width:0;
+  }
+  .search-bar input::placeholder{color:var(--ink-faint);}
+  .search-bar.focused{
+    border:1px solid var(--violet-dim); box-shadow:0 0 0 4px rgba(106,95,211,0.14);
+  }
+  .sclear{
+    width:28px;height:28px;border-radius:50%; border:none; background:rgba(32,34,43,0.08);
+    color:var(--ink-dim); font-size:12px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+  }
+
+  .suggestions{
+    position:absolute; left:0; right:0; top:calc(100% + 8px); border-radius:16px;
+    overflow:hidden; max-height:none; opacity:0; transform:translateY(-6px) scale(0.98);
+    pointer-events:none; transition:all 0.16s ease; transform-origin:top center;
+  }
+  .suggestions.open{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
+  .sug-list{max-height:308px; overflow-y:auto;}
+  .sug-item{
+    display:flex; align-items:center; gap:11px; padding:11px 14px; cursor:pointer;
+    border-bottom:1px solid rgba(32,34,43,0.06);
+  }
+  .sug-item:last-child{border-bottom:none;}
+  .sug-item:hover, .sug-item.active{background:rgba(106,95,211,0.1);}
+  .sug-ic{
+    width:34px;height:34px;border-radius:10px; background:rgba(106,95,211,0.1); color:var(--violet);
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; font-weight:700;
+  }
+  .sug-main{flex:1; min-width:0;}
+  .sug-name{font-size:12.5px; font-weight:700; color:var(--ink); line-height:1.3;}
+  .sug-name mark{background:rgba(106,95,211,0.22); color:var(--violet); border-radius:3px; padding:0 1px;}
+  .sug-code{font-size:10px; color:var(--ink-faint); margin-top:2px; letter-spacing:0.2px;}
+  .sug-price{font-weight:700; font-size:13px; color:var(--violet); flex-shrink:0;}
+  .sug-empty{padding:22px 14px; text-align:center; font-size:12.5px; color:var(--ink-faint);}
+
+  .catalog-hint{font-size:11px; color:var(--ink-faint); text-align:center; margin:2px 0 16px;}
+
+  .receipt{padding:20px 18px 14px; margin-bottom:14px;}
+  .receipt-head{
+    text-align:center; border-bottom:1px dashed rgba(32,34,43,0.16); padding-bottom:13px; margin-bottom:6px;
+  }
+  .receipt-head .rname{font-family:'Manrope',sans-serif; font-weight:800; font-size:18px; letter-spacing:0.2px;}
+  .receipt-head .rmeta{font-size:11px; color:var(--ink-faint); margin-top:4px; font-weight:500;}
+
+  .items{padding:6px 0 4px;}
+  .empty-cart{text-align:center; padding:36px 10px; color:var(--ink-faint);}
+  .empty-cart .eicon{
+    width:44px;height:44px;border-radius:14px; margin:0 auto 10px;
+    background:rgba(106,95,211,0.08); color:var(--violet-dim);
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+  }
+  .empty-cart p{font-size:13px; margin:0;}
+
+  .item-row{display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px dotted var(--hair-strong);}
+  .item-row:last-child{border-bottom:none;}
+  .item-main{flex:1; min-width:0;}
+  .item-main .iname{font-size:12.5px; font-weight:700; line-height:1.3; color:var(--ink);}
+  .item-main .iunit{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+  .qty-ctrl{display:flex; align-items:center; gap:7px; background:rgba(106,95,211,0.09); border-radius:10px; padding:4px 7px;}
+  .qty-ctrl button{
+    width:21px;height:21px; border-radius:7px; border:none; background:var(--violet); color:#fff;
+    font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1;
+  }
+  .qty-ctrl span{font-size:12.5px; font-weight:700; min-width:16px; text-align:center;}
+  .iline{font-weight:700; font-size:13px; min-width:66px; text-align:right;}
+  .irm{
+    width:24px;height:24px;border-radius:8px; background:transparent; border:none; color:var(--coral);
+    display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; flex-shrink:0;
+  }
+
+  .totals{border-top:1px dashed rgba(32,34,43,0.16); margin-top:6px; padding-top:12px;}
+  .trow{display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; color:var(--ink-dim); font-weight:500;}
+  .trow.grand{font-size:22px; font-weight:800; color:var(--ink); padding-top:8px; font-family:'Manrope',sans-serif;}
+  .trow.grand span:last-child{color:var(--violet);}
+
+  .actions{display:flex; gap:8px; margin-top:2px;}
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:rgba(32,34,43,0.92); color:#fff; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    padding:11px 18px; border-radius:99px; font-size:12.5px; font-weight:600;
+    opacity:0; pointer-events:none; transition:all 0.25s ease; z-index:60; white-space:nowrap;
+    box-shadow:0 10px 26px rgba(0,0,0,0.25); display:flex; align-items:center; gap:6px;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  @media print{
+    body *{visibility:hidden;}
+    .receipt, .receipt *{visibility:visible;}
+    .receipt{position:absolute; top:0; left:0; width:100%; border-radius:0; box-shadow:none; backdrop-filter:none; background:#fff;}
+    .qty-ctrl button, .irm{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+<div class="blob b3"></div>
+<div class="blob b4"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark">HQ</div>
+      <div>
+        <h1>HAQ'S POS</h1>
+        <div class="sub">Scan · Bill · Done</div>
+      </div>
+    </div>
+    <div class="bill-tag">
+      <span>BILL NO.</span>
+      <b id="billNo">—</b>
+    </div>
+  </header>
+
+  <div id="secureBanner" class="banner warn hidden">
+    <span class="bicon">&#9888;</span>
+    <div>
+      <b>Camera needs a secure connection</b>
+      Yeh page HTTPS (ya localhost) pe hona zaroori hai camera use karne ke liye. Neeche manual box se barcode ya naam type karke bill banate rahein.
+    </div>
+  </div>
+
+  <div id="permBanner" class="banner warn hidden">
+    <span class="bicon">&#128247;</span>
+    <div>
+      <b>Camera permission denied</b>
+      <span id="permMsg">Browser settings me is site ke liye camera "Allow" karein, phir dobara try karein.</span>
+    </div>
+  </div>
+
+  <div class="scan-zone glass">
+    <div class="scan-head">
+      <span class="label">Barcode scanner</span>
+      <span class="status-dot" id="statusDot"><span class="d"></span><span id="statusText">Camera off</span></span>
+    </div>
+
+    <div id="viewfinderOff" class="viewfinder-off">
+      <div class="vicon">&#128247;</div>
+      <p>Camera abhi band hai. Scanning shuru karne ke liye neeche button dabayein.</p>
+      <button class="btn primary" id="startBtn" style="max-width:220px;margin:0 auto;">Start scanning</button>
+    </div>
+
+    <div id="readerBox" style="display:none; position:relative;">
+      <div id="reader"></div>
+      <div class="scan-frame"></div>
+      <div class="laser"></div>
+      <div class="flash" id="flash">
+        <div class="ficon" id="flashIcon">&#10003;</div>
+        <div class="fname" id="flashName"></div>
+        <div class="fprice" id="flashPrice"></div>
+      </div>
+    </div>
+
+    <div class="scan-controls" id="liveControls" style="display:none;">
+      <button class="btn" id="torchBtn">Flash</button>
+      <button class="btn danger" id="stopBtn">Stop camera</button>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-bar glass">
+      <span class="sicon">&#128269;</span>
+      <input type="text" id="manualInput" autocomplete="off" placeholder="Barcode ya item naam search karein">
+      <button class="sclear" id="clearSearch" style="display:none;">&#10005;</button>
+    </div>
+    <div class="suggestions glass" id="suggestions"></div>
+  </div>
+  <div class="catalog-hint">54 items loaded — PK &amp; K&amp;N's frozen range</div>
+
+  <div class="receipt glass">
+    <div class="receipt-head">
+      <div class="rname">HAQ'S FOOD TRENDS</div>
+      <div class="rmeta" id="rmeta">—</div>
+    </div>
+    <div class="items" id="itemsBox">
+      <div class="empty-cart">
+        <div class="eicon">&#128722;</div>
+        <p>Bill khali hai. Pehla item scan karein.</p>
+      </div>
+    </div>
+    <div class="totals" id="totalsBox" style="display:none;">
+      <div class="trow"><span id="countLabel">0 items</span><span id="subtotal">Rs 0</span></div>
+      <div class="trow grand"><span>TOTAL</span><span id="grandTotal">Rs 0</span></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" id="newBillBtn">New bill</button>
+    <button class="btn primary" id="printBtn">Print bill</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PRODUCTS = [
+  {codes:["8964000469088"], name:"PK Beef Beef Kofta 500gm", price:1190},
+  {codes:["8964000469750"], name:"PK Beef Seekh Kabab 540gm", price:1460},
+  {codes:["8964000469736"], name:"PK Beef Shami Kabab 646gm", price:1190},
+  {codes:["8964000469767"], name:"PK Chicken Seekh Kabab 540gm", price:1205},
+  {codes:["8964000469149"], name:"PK Chicken Burger 1000gm", price:1200},
+  {codes:["8964000469347"], name:"PK Chicken Coated Nuggets 312gm", price:550},
+  {codes:["8964000470664"], name:"PK Chicken Crispy Hot Shot 300gm", price:690},
+  {codes:["8964000470657"], name:"PK Chicken Crispy Hot Shot 600gm", price:1050},
+  {codes:["8964000469071"], name:"PK Chicken Kofta 500gm", price:800},
+  {codes:["8964000469354"], name:"PK Chicken Nuggets 600gm", price:890},
+  {codes:["8964000469385"], name:"PK Chicken Pop Corn 900gm", price:1160},
+  {codes:["8964000469828"], name:"PK Chicken Samosa 24pcs", price:1010},
+  {codes:["8964000469712"], name:"PK Chicken Shami Kabab 612gm", price:1175},
+  {codes:["8964000470152"], name:"PK Chicken Star 900gm", price:890},
+  {codes:["8964000470725"], name:"PK Crispy Wings 300gm", price:650},
+  {codes:["8964000470718"], name:"PK Crispy Wings 800gm", price:1170},
+  {codes:["8964000470145"], name:"PK Spring Chicken Fries 900gm", price:1070},
+  {codes:["8964000470107"], name:"PK Spring Chicken Kofta 900gm", price:1040},
+  {codes:["8964000470077"], name:"PK Spring Chicken Nuggets 900gm", price:1070},
+  {codes:["8964000470060"], name:"PK Springs Chicken Popcorn 900gm", price:1000},
+
+  {codes:["8964000769973"], name:"K&N's Blazin Bars 1000gm", price:1395},
+  {codes:["8964000163436"], name:"K&N's Boneless Handi 500g", price:630},
+  {codes:["8964000769492"], name:"K&N's Breakfast Sausage With Herbs EP 720g", price:1310},
+  {codes:["8964000769706"], name:"K&N's Burger Patties 400g", price:600},
+  {codes:["8964000163115","8964000769898"], name:"K&N's Chapli Kabab (E.P) 900g", price:1370},
+  {codes:["8964000163108","896400069881","8964000769881"], name:"K&N's Chapli Kabab 300gm", price:540},
+  {codes:["8964000163078"], name:"K&N's Chicken Tempura (E.P) 660g", price:1325},
+  {codes:["8964000163191"], name:"K&N's Chunks Chicken Tikka (E.P) 700g", price:1315},
+  {codes:["8964000163184"], name:"K&N's Combo Wings (E.P) 0.85kg", price:1330},
+  {codes:["8964000163054"], name:"K&N's Croquettes (E.P) 1kg", price:1420},
+  {codes:["4143"], name:"K&N's Fajita Topping L/P 1kg", price:1630},
+  {codes:["8964000769577"], name:"K&N's Fiery Fingers 780g", price:1435},
+  {codes:["8964000769980"], name:"K&N's Filleto 560gm", price:1135},
+  {codes:["8964000769508"], name:"K&N's Frankfurter Sausage 720g", price:1310},
+  {codes:["8964000163221"], name:"K&N's Fun Nuggets (E.P) 795g", price:1235},
+  {codes:["8964000163214"], name:"K&N's Fun Nuggets 265g", price:535},
+  {codes:["8964000163153"], name:"K&N's Haray Bharay Nuggets (E.P) 1kg", price:1380},
+  {codes:["8964000163177","8964000769911"], name:"K&N's Hot Tenders (E.P) 780g", price:1435},
+  {codes:["8964000164204"], name:"K&N's Kafta Kabab (E.P) 515g", price:1225},
+  {codes:["8964000769607"], name:"K&N's Kofta Economy 30pcs 0.865kg", price:1480},
+  {codes:["8964000769591"], name:"K&N's Kofta Home Style 340g", price:620},
+  {codes:["1951"], name:"K&N's Kofta Home Style EP 850g", price:1460},
+  {codes:["8964000163726"], name:"K&N's Mini Franks Sausage With Cheese 700gm", price:1300},
+  {codes:["8964000164358"], name:"K&N's Mughlai Tikka (E.P) 515g", price:1245},
+  {codes:["8964000163030"], name:"K&N's Nuggets (E.P) 1kg", price:1395},
+  {codes:["8964000163023"], name:"K&N's Nuggets 270g", price:520},
+  {codes:["8964000769614"], name:"K&N's Nuggets Family Pack 1.7kg", price:2235},
+  {codes:["1959"], name:"K&N's Pepperoni Slices 588g", price:1295},
+  {codes:["8964000163399"], name:"K&N's Qeema 500g", price:630},
+  {codes:["8964000769331"], name:"K&N's Samosa (E.P) 0.420kg", price:965},
+  {codes:["8964000163139"], name:"K&N's Seekh Kabab (E.P) 540g", price:1225},
+  {codes:["8964000163122"], name:"K&N's Seekh Kabab 205g", price:540},
+  {codes:["8964000164228"], name:"K&N's Shami Kabab (E.P) 648g", price:1190},
+  {codes:["8964000164211"], name:"K&N's Shami Kabab 252g", price:515}
+];
+const catalog = {};
+PRODUCTS.forEach(p => p.codes.forEach(c => catalog[c] = p));
+
+let cart = {};
+let html5Qrcode = null;
+let scanning = false;
+let torchOn = false;
+let lastCode = null;
+let lastTime = 0;
+const COOLDOWN_MS = 900;
+let audioCtx = null;
+
+function fmt(n){ return "Rs " + n.toLocaleString("en-PK"); }
+
+function genBillNo(){
+  const d = new Date();
+  return d.getFullYear().toString().slice(2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + "-" + String(Math.floor(Math.random()*900)+100);
+}
+function setBillMeta(){
+  document.getElementById('billNo').textContent = genBillNo();
+  const now = new Date();
+  document.getElementById('rmeta').textContent = now.toLocaleDateString('en-GB') + "  ·  " + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+setBillMeta();
+
+function toast(msg, icon){
+  const t = document.getElementById('toast');
+  t.innerHTML = (icon || '') + " " + msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+function ensureAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+  }
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume(); }
+}
+function beep(ok){
+  if(!audioCtx) return;
+  try{
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.value = ok ? 1046 : 220;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (ok?0.12:0.25));
+    osc.stop(audioCtx.currentTime + (ok?0.13:0.26));
+  }catch(e){}
+}
+function vibrate(pattern){ if(navigator.vibrate) navigator.vibrate(pattern); }
+
+function flashResult(product, missCode){
+  const flash = document.getElementById('flash');
+  const icon = document.getElementById('flashIcon');
+  const name = document.getElementById('flashName');
+  const price = document.getElementById('flashPrice');
+  flash.classList.remove('miss');
+  if(product){
+    icon.innerHTML = '&#10003;';
+    name.textContent = product.name;
+    price.textContent = fmt(product.price);
+  } else {
+    flash.classList.add('miss');
+    icon.innerHTML = '!';
+    name.textContent = 'Barcode not found: ' + missCode;
+    price.textContent = '';
+  }
+  flash.classList.add('show');
+  setTimeout(()=> flash.classList.remove('show'), 550);
+}
+
+function addToCart(rawCode){
+  const code = String(rawCode).trim();
+  const now = Date.now();
+  if(code === lastCode && (now - lastTime) < COOLDOWN_MS) return;
+  lastCode = code; lastTime = now;
+
+  const product = catalog[code];
+  if(!product){
+    beep(false); vibrate(200);
+    flashResult(null, code);
+    toast('Barcode match nahi hua', '&#9888;');
+    return;
+  }
+  beep(true); vibrate(60);
+  flashResult(product);
+  if(cart[code]){
+    cart[code].qty += 1;
+  } else {
+    cart[code] = {...product, qty:1};
+  }
+  renderCart();
+  toast(product.name.split(' ').slice(0,4).join(' ') + ' added', '&#10003;');
+}
+
+function renderCart(){
+  const box = document.getElementById('itemsBox');
+  const totalsBox = document.getElementById('totalsBox');
+  const codes = Object.keys(cart);
+  if(codes.length === 0){
+    box.innerHTML = '<div class="empty-cart"><div class="eicon">&#128722;</div><p>Bill khali hai. Pehla item scan karein.</p></div>';
+    totalsBox.style.display = 'none';
+    return;
+  }
+  totalsBox.style.display = 'block';
+  let html = '';
+  let subtotal = 0;
+  let count = 0;
+  codes.forEach(code => {
+    const it = cart[code];
+    const line = it.price * it.qty;
+    subtotal += line;
+    count += it.qty;
+    html += `<div class="item-row" data-code="${code}">
+      <div class="item-main">
+        <div class="iname">${it.name}</div>
+        <div class="iunit">${fmt(it.price)} each</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qminus" data-code="${code}">−</button>
+        <span>${it.qty}</span>
+        <button class="qplus" data-code="${code}">+</button>
+      </div>
+      <div class="iline">${fmt(line)}</div>
+      <button class="irm" data-code="${code}">&#10005;</button>
+    </div>`;
+  });
+  box.innerHTML = html;
+  document.getElementById('countLabel').textContent = count + (count===1?' item':' items');
+  document.getElementById('subtotal').textContent = fmt(subtotal);
+  document.getElementById('grandTotal').textContent = fmt(subtotal);
+
+  box.querySelectorAll('.qplus').forEach(b => b.onclick = () => { cart[b.dataset.code].qty++; renderCart(); });
+  box.querySelectorAll('.qminus').forEach(b => b.onclick = () => {
+    cart[b.dataset.code].qty--;
+    if(cart[b.dataset.code].qty <= 0) delete cart[b.dataset.code];
+    renderCart();
+  });
+  box.querySelectorAll('.irm').forEach(b => b.onclick = () => { delete cart[b.dataset.code]; renderCart(); });
+}
+
+document.getElementById('newBillBtn').onclick = () => {
+  cart = {};
+  renderCart();
+  setBillMeta();
+  toast('New bill started', '&#8635;');
+};
+document.getElementById('printBtn').onclick = () => {
+  if(Object.keys(cart).length === 0){ toast('Bill khali hai', '&#9888;'); return; }
+  window.print();
+};
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function highlight(text, q){
+  if(!q) return escapeHtml(text);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if(idx === -1) return escapeHtml(text);
+  return escapeHtml(text.slice(0,idx)) + '<mark>' + escapeHtml(text.slice(idx, idx+q.length)) + '</mark>' + escapeHtml(text.slice(idx+q.length));
+}
+
+const searchInput = document.getElementById('manualInput');
+const searchBar = document.querySelector('.search-bar');
+const suggestionsBox = document.getElementById('suggestions');
+const clearBtn = document.getElementById('clearSearch');
+let activeIndex = -1;
+let currentMatches = [];
+
+function matchProducts(q){
+  const query = q.trim().toLowerCase();
+  if(!query) return [];
+  return PRODUCTS.filter(p =>
+    p.name.toLowerCase().includes(query) ||
+    p.codes.some(c => c.includes(query))
+  ).slice(0, 8);
+}
+
+function renderSuggestions(q){
+  currentMatches = matchProducts(q);
+  activeIndex = -1;
+  if(!q.trim()){
+    suggestionsBox.classList.remove('open');
+    suggestionsBox.innerHTML = '';
+    return;
+  }
+  if(currentMatches.length === 0){
+    suggestionsBox.innerHTML = '<div class="sug-empty">Koi item nahi mila &mdash; "' + escapeHtml(q) + '"</div>';
+    suggestionsBox.classList.add('open');
+    return;
+  }
+  const query = q.trim();
+  suggestionsBox.innerHTML = '<div class="sug-list">' + currentMatches.map((p, i) => {
+    const codeMatch = p.codes.find(c => c.includes(query.toLowerCase())) || p.codes[0];
+    const isBarcode = p.codes.some(c => c.includes(query.toLowerCase()));
+    return `<div class="sug-item" data-idx="${i}">
+      <div class="sug-ic">${p.name.charAt(0)}</div>
+      <div class="sug-main">
+        <div class="sug-name">${isBarcode ? escapeHtml(p.name) : highlight(p.name, query)}</div>
+        <div class="sug-code">${isBarcode ? highlight(codeMatch, query) : codeMatch}</div>
+      </div>
+      <div class="sug-price">${fmt(p.price)}</div>
+    </div>`;
+  }).join('') + '</div>';
+  suggestionsBox.classList.add('open');
+
+  suggestionsBox.querySelectorAll('.sug-item').forEach(el => {
+    el.onclick = () => selectSuggestion(parseInt(el.dataset.idx));
+  });
+}
+
+function setActive(i){
+  const items = suggestionsBox.querySelectorAll('.sug-item');
+  items.forEach(el => el.classList.remove('active'));
+  if(i >= 0 && i < items.length){
+    items[i].classList.add('active');
+    items[i].scrollIntoView({block:'nearest'});
+  }
+  activeIndex = i;
+}
+
+function selectSuggestion(i){
+  const p = currentMatches[i];
+  if(!p) return;
+  ensureAudio();
+  lastCode = null;
+  addToCart(p.codes[0]);
+  searchInput.value = '';
+  clearBtn.style.display = 'none';
+  suggestionsBox.classList.remove('open');
+  searchInput.focus();
+}
+
+searchInput.addEventListener('input', () => {
+  clearBtn.style.display = searchInput.value ? 'flex' : 'none';
+  renderSuggestions(searchInput.value);
+});
+searchInput.addEventListener('focus', () => {
+  searchBar.classList.add('focused');
+  if(searchInput.value) renderSuggestions(searchInput.value);
+});
+searchInput.addEventListener('blur', () => {
+  searchBar.classList.remove('focused');
+  setTimeout(() => suggestionsBox.classList.remove('open'), 150);
+});
+searchInput.addEventListener('keydown', e => {
+  if(e.key === 'ArrowDown'){ e.preventDefault(); setActive(Math.min(activeIndex+1, currentMatches.length-1)); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); setActive(Math.max(activeIndex-1, 0)); }
+  else if(e.key === 'Enter'){
+    e.preventDefault();
+    ensureAudio();
+    if(activeIndex >= 0 && currentMatches[activeIndex]){ selectSuggestion(activeIndex); }
+    else if(catalog[searchInput.value.trim()]){ lastCode = null; addToCart(searchInput.value.trim()); searchInput.value=''; clearBtn.style.display='none'; suggestionsBox.classList.remove('open'); }
+    else if(currentMatches.length){ selectSuggestion(0); }
+    else if(searchInput.value.trim()){ toast('Item nahi mila', '&#9888;'); }
+  } else if(e.key === 'Escape'){
+    suggestionsBox.classList.remove('open');
+    searchInput.blur();
+  }
+});
+clearBtn.onclick = () => {
+  searchInput.value = '';
+  clearBtn.style.display = 'none';
+  suggestionsBox.classList.remove('open');
+  searchInput.focus();
+};
+
+function showBanner(id, msg){
+  const el = document.getElementById(id);
+  if(msg) document.getElementById('permMsg').textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideBanner(id){ document.getElementById(id).classList.add('hidden'); }
+
+async function startScanner(){
+  ensureAudio();
+  hideBanner('permBanner');
+  hideBanner('secureBanner');
+
+  if(!window.isSecureContext){
+    showBanner('secureBanner');
+    document.getElementById('manualInput').focus();
+    return;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showBanner('permBanner', 'Is browser me camera access support nahi hai. Manual box istemal karein.');
+    document.getElementById('manualInput').focus();
+    return;
+  }
+
+  const readerBox = document.getElementById('readerBox');
+  const viewfinderOff = document.getElementById('viewfinderOff');
+  const liveControls = document.getElementById('liveControls');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const startBtn = document.getElementById('startBtn');
+
+  startBtn.textContent = 'Opening camera...';
+
+  try{
+    html5Qrcode = new Html5Qrcode("reader", { formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ], verbose:false,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
+
+    const config = {
+      fps: 30,
+      qrbox: (vw, vh) => {
+        const w = Math.floor(vw * 0.88);
+        const h = Math.floor(Math.min(vh * 0.52, w * 0.55));
+        return { width: w, height: h };
+      },
+      aspectRatio: 1.4,
+      disableFlip:false
+    };
+
+    await html5Qrcode.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => { addToCart(decodedText); },
+      () => {}
+    );
+
+    readerBox.style.display = 'block';
+    viewfinderOff.style.display = 'none';
+    liveControls.style.display = 'flex';
+    statusDot.classList.add('live');
+    statusText.textContent = 'Live';
+    scanning = true;
+  }catch(err){
+    startBtn.textContent = 'Start scanning';
+    const name = (err && err.name) || '';
+    if(name === 'NotAllowedError' || name === 'PermissionDeniedError'){
+      showBanner('permBanner', 'Browser settings me is site ke liye camera "Allow" karein, phir "Start scanning" dobara dabayein.');
+    } else if(name === 'NotFoundError' || name === 'DevicesNotFoundError'){
+      showBanner('permBanner', 'Is device pe koi camera nahi mila. Manual box se barcode add karein.');
+    } else if(name === 'NotReadableError' || name === 'TrackStartError'){
+      showBanner('permBanner', 'Camera kisi aur app me busy hai. Us app ko band karke dobara try karein.');
+    } else if(name === 'OverconstrainedError'){
+      showBanner('permBanner', 'Back camera nahi mil saki. Manual box istemal karein.');
+    } else {
+      showBanner('permBanner', 'Camera start nahi ho saka. Manual box se barcode ya naam type karein.');
+    }
+    document.getElementById('manualInput').focus();
+    console.error(err);
+  }
+}
+async function stopScanner(){
+  if(html5Qrcode && scanning){
+    try{ await html5Qrcode.stop(); await html5Qrcode.clear(); }catch(e){}
+  }
+  scanning = false;
+  torchOn = false;
+  document.getElementById('readerBox').style.display = 'none';
+  document.getElementById('viewfinderOff').style.display = 'block';
+  document.getElementById('liveControls').style.display = 'none';
+  document.getElementById('statusDot').classList.remove('live');
+  document.getElementById('statusText').textContent = 'Camera off';
+  document.getElementById('startBtn').textContent = 'Start scanning';
+}
+document.getElementById('startBtn').onclick = startScanner;
+document.getElementById('stopBtn').onclick = stopScanner;
+document.getElementById('torchBtn').onclick = async () => {
+  if(!html5Qrcode || !scanning) return;
+  try{
+    torchOn = !torchOn;
+    await html5Qrcode.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+    toast(torchOn ? 'Flash on' : 'Flash off', '');
+  }catch(e){
+    toast('Flash is not supported on this camera', '&#9888;');
+    torchOn = false;
+  }
+};
+
+if(!window.isSecureContext){
+  showBanner('secureBanner');
+}
+
+renderCart();
+</script>
+</body>
+</html>
